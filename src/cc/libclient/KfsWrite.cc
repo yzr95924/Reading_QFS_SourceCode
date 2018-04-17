@@ -78,6 +78,8 @@ KfsClientImpl::WriteAsyncCompletionHandler(int fd)
     return Sync(fd);
 }
 
+//////////////////////////////////客户端写操作的函数///////////////////////////////
+
 ssize_t
 KfsClientImpl::Write(int fd, const char *buf, size_t numBytes,
     bool asyncFlag, bool appendOnlyFlag, chunkOff_t* pos /* = 0 */)
@@ -90,7 +92,7 @@ KfsClientImpl::Write(int fd, const char *buf, size_t numBytes,
         KFS_LOG_EOM;
         return -EBADF;
     }
-    FileTableEntry& entry = *mFileTable[fd];
+    FileTableEntry& entry = *mFileTable[fd]; //entry是用来描述文件的数据结构
     if (entry.openMode == O_RDONLY) {
         return -EINVAL;
     }
@@ -126,6 +128,9 @@ KfsClientImpl::Write(int fd, const char *buf, size_t numBytes,
         }
         filePos += numBytes;
     }
+
+
+
     StartProtocolWorker();
     KfsProtocolWorker::Request::Params        openParams;
     KfsProtocolWorker::Request::Params* const openParamsPtr =

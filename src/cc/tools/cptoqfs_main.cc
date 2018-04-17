@@ -131,7 +131,7 @@ private:
 };
 
 int
-CpToKfs::Run(int argc, char **argv)
+CpToKfs::Run(int argc, char **argv)  //运行时候的主要函数
 {
     string              kfsPath;
     string              serverHost;
@@ -152,15 +152,15 @@ CpToKfs::Run(int argc, char **argv)
                 sourcePath = optarg; //-d 之后输入的文件源路径
                 break;
             case 'k':
-                kfsPath = optarg; //-k 之后输入的
+                kfsPath = optarg; //-k 之后输入的QFS中的存储路径
                 break;
             case 'p':
-                port = atoi(optarg);
+                port = atoi(optarg);  //MetaServer的端口
                 break;
             case 's':
-                serverHost = optarg;
+                serverHost = optarg;  //MetaServer的HostIP地址
                 break;
-            case 'h':
+            case 'h':     // 打印帮助
                 help = true;
                 break;
             case 'v':
@@ -202,8 +202,8 @@ CpToKfs::Run(int argc, char **argv)
             case 'z':
                 mNumRecoveryStripes = atol(optarg);
                 break;
-            case 'S':
-                mStripeSize         = 64 << 10;
+            case 'S':                 //使用RS Encoding时候的参数设定
+                mStripeSize         = 64 << 10; //stripe的大小为64KB
                 mNumStripes         = 6;
                 mNumRecoveryStripes = 3;
                 mNumReplicas        = 1;
@@ -279,7 +279,7 @@ CpToKfs::Run(int argc, char **argv)
     if (KFS_STRIPED_FILE_TYPE_NONE == mStriperType &&
             (mStripeSize > 0 || mNumStripes > 0 || mNumRecoveryStripes > 0)) {
         mStriperType = KFS_STRIPED_FILE_TYPE_RS;
-    }
+    }  // 判断是否使用RS编码
 
     string valErrorMsg;
     int valErrCode = KfsClient::ValidateCreateParams(
@@ -288,10 +288,10 @@ CpToKfs::Run(int argc, char **argv)
     if (valErrCode) {
         cout << valErrorMsg << "\n";
         return(-1);
-    }
+    } //判断输入的参数是否存在不合理
 
     MsgLogger::Init(0, logLevel);
-    mKfsClient = KfsClient::Connect(serverHost, port, config);
+    mKfsClient = KfsClient::Connect(serverHost, port, config); //客户端连接MetaServer
     if (!mKfsClient) {
         cout << "qfs client failed to initialize\n";
         return(-1);
@@ -305,11 +305,11 @@ CpToKfs::Run(int argc, char **argv)
     if (opTimeout > 0) {
         mKfsClient->SetDefaultIOTimeout(opTimeout);
     }
-    if (mKfsBufSize >= 0) {
+    if (mKfsBufSize >= 0) {   //控制Buffer的大小
         mKfsClient->SetDefaultIoBufferSize(mKfsBufSize);
     }
 
-    struct stat statInfo;
+    struct stat statInfo;  // 判断文件路径异常？
     statInfo.st_mode = S_IFREG;
     if (sourcePath != "-" && stat(sourcePath.c_str(), &statInfo)) {
         ReportError("stat", sourcePath, -errno);
@@ -329,13 +329,13 @@ CpToKfs::Run(int argc, char **argv)
     }
 
     // when doing cp -r a/b kfs://c, we need to create c/b in KFS.
-    const bool ok = MakeKfsLeafDir(sourcePath, kfsPath);
+    const bool ok = MakeKfsLeafDir(sourcePath, kfsPath); //建立相应的文件目录
     closedir(dirp);
     return (ok ? BackupDir(sourcePath, kfsPath) : -1);
 }
 
 bool
-CpToKfs::MakeKfsLeafDir(string sourcePath, string kfsPath)
+CpToKfs::MakeKfsLeafDir(string sourcePath, string kfsPath)  // 在QFS中建立相应的路径
 {
     string leaf;
     const string::size_type slash = sourcePath.rfind('/');
@@ -355,14 +355,14 @@ CpToKfs::MakeKfsLeafDir(string sourcePath, string kfsPath)
 }
 
 int
-CpToKfs::BackupFile(string sourcePath, string kfsPath)
+CpToKfs::BackupFile(string sourcePath, string kfsPath)     //针对输入是文件的情况
 {
     string filename;
     const string::size_type slash = sourcePath.rfind('/');
 
     // get everything after the last slash
     if (slash != string::npos) {
-        filename.assign(sourcePath, slash+1, string::npos);
+        filename.assign(sourcePath, slash+1, string::npos); //得到存储文件的指定名称
     } else {
         filename = sourcePath;
     }
@@ -370,7 +370,9 @@ CpToKfs::BackupFile(string sourcePath, string kfsPath)
     // for the dest side: if kfsPath is a dir, we are copying to
     // kfsPath with srcFilename; otherwise, kfsPath is a file (that
     // potentially exists) and we are ovewriting/creating it
-    if (mKfsClient->IsDirectory(kfsPath.c_str())) {
+    //判断所指定的QFS目录是目录还是文件名字？
+
+    if (mKfsClient->IsDirectory(kfsPath.c_str())) {  //对于输入的KfsPath是目录的情况
         string dst = kfsPath;
         if (dst[kfsPath.size() - 1] != '/') {
             dst += "/";
@@ -380,11 +382,11 @@ CpToKfs::BackupFile(string sourcePath, string kfsPath)
 
     // kfsPath is the filename that is being specified for the cp
     // target.  try to copy to there...
-    return BackupFile2(sourcePath, kfsPath);
+    return BackupFile2(sourcePath, kfsPath);  //对于输入的KfsPath是文件名的情况直接overwrite相应的文件
 }
 
 int
-CpToKfs::BackupDir(string dirname, string kfsdirname)
+CpToKfs::BackupDir(string dirname, string kfsdirname)  //针对输入是整个目录的情况
 {
     string subdir, kfssubdir;
     DIR *dirp;
@@ -436,7 +438,7 @@ CpToKfs::BackupDir(string dirname, string kfsdirname)
 // Guts of the work to copy the file.
 //
 int
-CpToKfs::BackupFile2(string srcfilename, string kfsfilename)
+CpToKfs::BackupFile2(string srcfilename, string kfsfilename)  //主要的文件拷贝函数
 {
     const int srcFd = srcfilename == "-" ?
         dup(0) : open(srcfilename.c_str(), O_RDONLY);
@@ -452,7 +454,7 @@ CpToKfs::BackupFile2(string srcfilename, string kfsfilename)
         return 0;
     }
 
-    if (mDeleteFlag && mAppendMode) {
+    if (mDeleteFlag && mAppendMode) {  						//对文件进行删除的操作
         const int res = mKfsClient->Remove(kfsfilename.c_str());
         if (res < 0 && res != -ENOENT) {
             close(srcFd);
@@ -462,7 +464,7 @@ CpToKfs::BackupFile2(string srcfilename, string kfsfilename)
     }
     const bool kForceTypeFlag = true;
     const int kfsfd = (mCreateExclusiveFlag || (mDeleteFlag && ! mAppendMode)) ?
-        mKfsClient->Create(
+        mKfsClient->Create(  			//根据输入的路径创建相应的文件
             kfsfilename.c_str(),
             mNumReplicas,
             mCreateExclusiveFlag,
@@ -476,7 +478,7 @@ CpToKfs::BackupFile2(string srcfilename, string kfsfilename)
             mMaxSTier
         )
         :
-        mKfsClient->Open(
+        mKfsClient->Open( 				  //根据输入的路径打开相应的文件
             kfsfilename.c_str(),
             (O_CREAT | O_WRONLY) |
                 (mAppendMode ? O_APPEND : 0) |
@@ -490,7 +492,7 @@ CpToKfs::BackupFile2(string srcfilename, string kfsfilename)
             mMinSTier,
             mMaxSTier
         );
-    if (kfsfd < 0) {
+    if (kfsfd < 0) {					//kfsfd为处理结果的返回值
         ReportError("open", kfsfilename, kfsfd);
         close(srcFd);
         return(-1);
@@ -500,7 +502,7 @@ CpToKfs::BackupFile2(string srcfilename, string kfsfilename)
         " => " << mKfsClient->GetIoBufferSize(kfsfd) <<
     KFS_LOG_EOM;
 
-    if (0 < mStartPos) {
+    if (0 < mStartPos) { 		//mStartPos是chunk offset
         const int64_t pos = mKfsClient->Seek(kfsfd, mStartPos);
         if (pos != mStartPos) {
             ReportError("seek", kfsfilename, (int)pos);
@@ -509,11 +511,14 @@ CpToKfs::BackupFile2(string srcfilename, string kfsfilename)
         }
     }
 
-    ssize_t nRead;
+    ssize_t nRead; 		//读入的字节数目
+
+    //////////////////////*将文件写入buffer的过程*/////////////////////////////
     while ((nRead = read(srcFd, mReadBuf, mBufSize)) > 0) {
         for (char* p = mReadBuf, * const e = p + nRead; p < e; ) {
             for (int i = 0; ;) {
                 const int res = mKfsClient->Write(kfsfd, p, e - p);
+
                 if (res <= 0 || (mAppendMode && p + res != e)) {
                     ReportError(mAppendMode ? "append" : "write",
                         kfsfilename, res);
@@ -521,10 +526,12 @@ CpToKfs::BackupFile2(string srcfilename, string kfsfilename)
                     mKfsClient->Close(kfsfd);
                     return(-1);
                 }
+
                 if (++i > mTestNumReWrites || mAppendMode) {
                     p += res;
                     break;
                 }
+
                 mKfsClient->Sync(kfsfd);
                 const int nw = i <= 1 ? 0 : res / i;
                 p += nw;
@@ -532,14 +539,14 @@ CpToKfs::BackupFile2(string srcfilename, string kfsfilename)
             }
         }
     }
-    if (nRead < 0) {
+    if (nRead < 0) {  		//判断读入的字节数是否存在异常
         ReportError("read", srcfilename, -errno);
         if (mIgnoreSrcErrorsFlag) {
             nRead = 0;
         }
     }
-    close(srcFd);
-    const int res = mKfsClient->Close(kfsfd);
+    close(srcFd);  			// 关闭当前的源文件
+    const int res = mKfsClient->Close(kfsfd);  //关闭在qfs端的文件
     if (res != 0) {
         ReportError("close", kfsfilename, res);
         return(-1);

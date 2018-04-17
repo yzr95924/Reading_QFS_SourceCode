@@ -3293,6 +3293,8 @@ KfsClientImpl::LookupAttr(kfsFileId_t parentFid, const string& filename,
     return UpdateFattr(parentFid, filename, fa, path, op.fattr, now);
 }
 
+/////////////////主要的创建文件的函数////////////////////////////////////////////////////
+
 int
 KfsClientImpl::Create(const char *pathname, int numReplicas, bool exclusive,
     int numStripes, int numRecoveryStripes, int stripeSize, int stripedType,
@@ -3309,11 +3311,11 @@ KfsClientImpl::CreateSelf(const char *pathname, int numReplicas, bool exclusive,
     int numStripes, int numRecoveryStripes, int stripeSize, int stripedType,
     bool forceTypeFlag, kfsMode_t mode, kfsSTier_t minSTier, kfsSTier_t maxSTier)
 {
-    if (! pathname || ! *pathname) {
+    if (! pathname || ! *pathname) {  //判断pathname是否发生异常
         return -EINVAL;
     }
 
-    assert(mMutex.IsOwned());
+    assert(mMutex.IsOwned());  //是个锁？
     int res = KfsClient::ValidateCreateParams(numReplicas, numStripes, numRecoveryStripes,
         stripeSize, stripedType, minSTier, maxSTier);
     if (res < 0) {
